@@ -1,14 +1,11 @@
-powershell
-# CmdSnake - Terminal Snake
-# Runs directly in PowerShell / CMD
-# No Python required
-
 $ErrorActionPreference = "SilentlyContinue"
 
 $Width = 50
 $Height = 20
-$Delay = 120
+$BaseDelay = 120
 $MinDelay = 55
+
+function Start-SnakeGame {
 
 $snake = @(
     [PSCustomObject]@{ X = 25; Y = 10 }
@@ -19,19 +16,7 @@ $snake = @(
 $direction = "RIGHT"
 $nextDirection = "RIGHT"
 $score = 0
-$highScore = 0
-
-function Hide-Cursor {
-    [Console]::CursorVisible = $false
-}
-
-function Show-Cursor {
-    [Console]::CursorVisible = $true
-}
-
-function Move-CursorHome {
-    [Console]::SetCursorPosition(0, 0)
-}
+$delay = $BaseDelay
 
 function Spawn-Food {
     do {
@@ -55,31 +40,39 @@ function Spawn-Food {
 }
 
 function Draw-Game {
-    Move-CursorHome
 
-    $green = "`e[92m"
-    $darkGreen = "`e[32m"
-    $red = "`e[91m"
-    $cyan = "`e[96m"
-    $yellow = "`e[93m"
-    $white = "`e[97m"
-    $gray = "`e[90m"
-    $bold = "`e[1m"
-    $reset = "`e[0m"
+    [Console]::SetCursorPosition(0, 0)
 
-    $lines = New-Object System.Collections.Generic.List[string]
+    $green = [char]27 + "[92m"
+    $darkGreen = [char]27 + "[32m"
+    $red = [char]27 + "[91m"
+    $cyan = [char]27 + "[96m"
+    $yellow = [char]27 + "[93m"
+    $white = [char]27 + "[97m"
+    $gray = [char]27 + "[90m"
+    $bold = [char]27 + "[1m"
+    $reset = [char]27 + "[0m"
 
-    $lines.Add("${bold}${cyan}╔" + ("═" * $Width) + "╗${reset}")
+    $output = New-Object System.Text.StringBuilder
 
-    $title = " S N A K E "
-    $lines.Add(
-        "${bold}${cyan}║${reset}" +
-        "${bold}${white}" +
-        $title.PadLeft([math]::Floor(($Width + $title.Length) / 2)).PadRight($Width) +
-        "${reset}${bold}${cyan}║${reset}"
+    [void]$output.Append(
+        "${bold}${cyan}╔" + ("═" * $Width) + "╗${reset}`n"
     )
 
-    $lines.Add("${bold}${cyan}╠" + ("═" * $Width) + "╣${reset}")
+    $title = " S N A K E "
+    $left = [int](($Width - $title.Length) / 2)
+
+    [void]$output.Append(
+        "${bold}${cyan}║${reset}" +
+        (" " * $left) +
+        "${bold}${white}${title}${reset}" +
+        (" " * ($Width - $left - $title.Length)) +
+        "${bold}${cyan}║${reset}`n"
+    )
+
+    [void]$output.Append(
+        "${bold}${cyan}╠" + ("═" * $Width) + "╣${reset}`n"
+    )
 
     for ($y = 0; $y -lt $Height; $y++) {
 
@@ -89,12 +82,10 @@ function Draw-Game {
 
             $character = " "
 
-            # Food
             if ($food.X -eq $x -and $food.Y -eq $y) {
                 $character = "${bold}${red}●${reset}"
             }
 
-            # Snake
             for ($i = 0; $i -lt $snake.Count; $i++) {
 
                 if ($snake[$i].X -eq $x -and $snake[$i].Y -eq $y) {
@@ -119,57 +110,53 @@ function Draw-Game {
             $row += $character
         }
 
-        $lines.Add("${cyan}║${reset}${row}${cyan}║${reset}")
+        [void]$output.Append(
+            "${cyan}║${reset}${row}${cyan}║${reset}`n"
+        )
     }
 
-    $lines.Add("${bold}${cyan}╠" + ("═" * $Width) + "╣${reset}")
+    [void]$output.Append(
+        "${bold}${cyan}╠" + ("═" * $Width) + "╣${reset}`n"
+    )
 
-    $stats = " SCORE: $score    BEST: $highScore "
-    $stats = $stats.PadLeft([math]::Floor(($Width + $stats.Length) / 2)).PadRight($Width)
+    $stats = " SCORE: $score "
+    $statsLeft = [int](($Width - $stats.Length) / 2)
 
-    $lines.Add(
-        "${cyan}║${reset}${bold}${yellow}${stats}${reset}${cyan}║${reset}"
+    [void]$output.Append(
+        "${cyan}║${reset}" +
+        (" " * $statsLeft) +
+        "${bold}${yellow}${stats}${reset}" +
+        (" " * ($Width - $statsLeft - $stats.Length)) +
+        "${cyan}║${reset}`n"
     )
 
     $controls = "WASD / ARROWS = MOVE    Q = QUIT"
-    $controls = $controls.PadLeft([math]::Floor(($Width + $controls.Length) / 2)).PadRight($Width)
+    $controlsLeft = [int](($Width - $controls.Length) / 2)
 
-    $lines.Add(
-        "${cyan}║${reset}${gray}${controls}${reset}${cyan}║${reset}"
+    [void]$output.Append(
+        "${cyan}║${reset}" +
+        (" " * $controlsLeft) +
+        "${gray}${controls}${reset}" +
+        (" " * ($Width - $controlsLeft - $controls.Length)) +
+        "${cyan}║${reset}`n"
     )
 
-    $lines.Add("${bold}${cyan}╚" + ("═" * $Width) + "╝${reset}")
+    [void]$output.Append(
+        "${bold}${cyan}╚" + ("═" * $Width) + "╝${reset}"
+    )
 
-    [Console]::Write(($lines -join "`n"))
+    [Console]::Write($output.ToString())
 }
 
-function Game-Over {
+$food = Spawn-Food
 
-    Clear-Host
-
-    Write-Host ""
-    Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Red
-    Write-Host "║                                                  ║" -ForegroundColor Red
-    Write-Host "║                    GAME OVER                     ║" -ForegroundColor Red
-    Write-Host "║                                                  ║" -ForegroundColor Red
-    Write-Host ("║              FINAL SCORE: {0,-18}║" -f $score) -ForegroundColor Yellow
-    Write-Host ("║              BEST SCORE:  {0,-18}║" -f $highScore) -ForegroundColor Cyan
-    Write-Host "║                                                  ║" -ForegroundColor Red
-    Write-Host "║             R = RESTART   Q = QUIT              ║" -ForegroundColor Gray
-    Write-Host "║                                                  ║" -ForegroundColor Red
-    Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Red
-}
+Clear-Host
+[Console]::CursorVisible = $false
 
 try {
 
-    [Console]::CursorVisible = $false
-    Clear-Host
-
-    $food = Spawn-Food
-
     while ($true) {
 
-        # Read every key waiting in the terminal
         while ([Console]::KeyAvailable) {
 
             $key = [Console]::ReadKey($true)
@@ -225,7 +212,7 @@ try {
                 }
 
                 "Q" {
-                    return
+                    return "QUIT"
                 }
             }
         }
@@ -266,7 +253,6 @@ try {
             break
         }
 
-        # Add new head
         $newHead = [PSCustomObject]@{
             X = $headX
             Y = $headY
@@ -274,52 +260,87 @@ try {
 
         $snake = @($newHead) + @($snake)
 
-        # Food
         if ($headX -eq $food.X -and $headY -eq $food.Y) {
 
             $score++
 
-            if ($score -gt $highScore) {
-                $highScore = $score
-            }
-
-            $Delay = [math]::Max(
+            $delay = [math]::Max(
                 $MinDelay,
-                120 - ($score * 2)
+                $BaseDelay - ($score * 2)
             )
 
             $food = Spawn-Food
         }
         else {
+
             if ($snake.Count -gt 1) {
-                $snake = @($snake[0..($snake.Count - 2)])
+                $snake = @(
+                    $snake[0..($snake.Count - 2)]
+                )
             }
         }
 
         Draw-Game
 
-        Start-Sleep -Milliseconds $Delay
-    }
-
-    Game-Over
-
-    while ($true) {
-
-        $key = [Console]::ReadKey($true)
-
-        if ($key.Key -eq "R") {
-            & $MyInvocation.MyCommand.Path
-            break
-        }
-
-        if ($key.Key -eq "Q") {
-            break
-        }
+        Start-Sleep -Milliseconds $delay
     }
 
 }
 finally {
-    Show-Cursor
-    Write-Host ""
+    [Console]::CursorVisible = $true
 }
-```
+
+Clear-Host
+
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Red
+Write-Host "║                                                  ║" -ForegroundColor Red
+Write-Host "║                    GAME OVER                     ║" -ForegroundColor Red
+Write-Host "║                                                  ║" -ForegroundColor Red
+Write-Host ("║              FINAL SCORE: {0,-18}║" -f $score) -ForegroundColor Yellow
+Write-Host "║                                                  ║" -ForegroundColor Red
+Write-Host "║             R = RESTART   Q = QUIT              ║" -ForegroundColor Gray
+Write-Host "║                                                  ║" -ForegroundColor Red
+Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host ""
+
+while ($true) {
+
+    $key = [Console]::ReadKey($true)
+
+    if ($key.Key -eq "R") {
+        return "RESTART"
+    }
+
+    if ($key.Key -eq "Q") {
+        return "QUIT"
+    }
+}
+
+}
+
+try {
+
+while ($true) {
+
+    $result = Start-SnakeGame
+
+    if ($result -eq "QUIT") {
+        break
+    }
+
+    if ($result -eq "RESTART") {
+        Clear-Host
+        continue
+    }
+
+    break
+}
+
+}
+finally {
+
+[Console]::CursorVisible = $true
+Write-Host ""
+
+}
