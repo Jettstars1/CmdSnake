@@ -1,4 +1,4 @@
-```powershell
+powershell
 # CmdSnake - Terminal Snake
 # Runs directly in PowerShell / CMD
 # No Python required
