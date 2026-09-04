@@ -399,6 +399,5 @@ finally {
 ```
 [Console]::CursorVisible = $true
 Write-Host ""
-```
 
 }
