@@ -1,156 +1,180 @@
-$ErrorActionPreference = "SilentlyContinue"
+# CmdSnake - Terminal Snake
+
+# GitHub -> PowerShell -> CMD
+
+# No Python required
+
+$ErrorActionPreference = "Stop"
 
 $Width = 50
 $Height = 20
 $BaseDelay = 120
 $MinDelay = 55
 
-function Start-SnakeGame {
+$highScore = 0
 
-$snake = @(
+function New-Food {
+do {
+$x = Get-Random -Minimum 0 -Maximum $Width
+$y = Get-Random -Minimum 0 -Maximum $Height
+
+```
+    $used = $false
+
+    foreach ($part in $script:snake) {
+        if ($part.X -eq $x -and $part.Y -eq $y) {
+            $used = $true
+            break
+        }
+    }
+} while ($used)
+
+[PSCustomObject]@{
+    X = $x
+    Y = $y
+}
+```
+
+}
+
+function Draw {
+
+```
+[Console]::SetCursorPosition(0, 0)
+
+$esc = [char]27
+
+$green = "$esc[92m"
+$darkGreen = "$esc[32m"
+$red = "$esc[91m"
+$cyan = "$esc[96m"
+$yellow = "$esc[93m"
+$white = "$esc[97m"
+$gray = "$esc[90m"
+$bold = "$esc[1m"
+$reset = "$esc[0m"
+
+$text = New-Object System.Text.StringBuilder
+
+[void]$text.Append(
+    "${bold}${cyan}╔" + ("═" * $Width) + "╗${reset}`n"
+)
+
+$title = " S N A K E "
+$left = [int](($Width - $title.Length) / 2)
+$right = $Width - $left - $title.Length
+
+[void]$text.Append(
+    "${cyan}║${reset}" +
+    (" " * $left) +
+    "${bold}${white}${title}${reset}" +
+    (" " * $right) +
+    "${cyan}║${reset}`n"
+)
+
+[void]$text.Append(
+    "${bold}${cyan}╠" + ("═" * $Width) + "╣${reset}`n"
+)
+
+for ($y = 0; $y -lt $Height; $y++) {
+
+    $row = ""
+
+    for ($x = 0; $x -lt $Width; $x++) {
+
+        $char = " "
+
+        if ($script:food.X -eq $x -and $script:food.Y -eq $y) {
+            $char = "${bold}${red}●${reset}"
+        }
+
+        for ($i = 0; $i -lt $script:snake.Count; $i++) {
+
+            if (
+                $script:snake[$i].X -eq $x -and
+                $script:snake[$i].Y -eq $y
+            ) {
+
+                if ($i -eq 0) {
+                    $char = "${bold}${green}█${reset}"
+                }
+                elseif ($i % 3 -eq 0) {
+                    $char = "${darkGreen}░${reset}"
+                }
+                elseif ($i % 3 -eq 1) {
+                    $char = "${darkGreen}▓${reset}"
+                }
+                else {
+                    $char = "${darkGreen}█${reset}"
+                }
+
+                break
+            }
+        }
+
+        $row += $char
+    }
+
+    [void]$text.Append(
+        "${cyan}║${reset}${row}${cyan}║${reset}`n"
+    )
+}
+
+[void]$text.Append(
+    "${bold}${cyan}╠" + ("═" * $Width) + "╣${reset}`n"
+)
+
+$scoreText = " SCORE: $script:score    BEST: $script:highScore "
+$scoreLeft = [int](($Width - $scoreText.Length) / 2)
+$scoreRight = $Width - $scoreLeft - $scoreText.Length
+
+[void]$text.Append(
+    "${cyan}║${reset}" +
+    (" " * $scoreLeft) +
+    "${bold}${yellow}${scoreText}${reset}" +
+    (" " * $scoreRight) +
+    "${cyan}║${reset}`n"
+)
+
+$controls = "WASD / ARROWS = MOVE    Q = QUIT"
+$controlLeft = [int](($Width - $controls.Length) / 2)
+$controlRight = $Width - $controlLeft - $controls.Length
+
+[void]$text.Append(
+    "${cyan}║${reset}" +
+    (" " * $controlLeft) +
+    "${gray}${controls}${reset}" +
+    (" " * $controlRight) +
+    "${cyan}║${reset}`n"
+)
+
+[void]$text.Append(
+    "${bold}${cyan}╚" + ("═" * $Width) + "╝${reset}"
+)
+
+[Console]::Write($text.ToString())
+```
+
+}
+
+function Play-Game {
+
+```
+$script:snake = @(
     [PSCustomObject]@{ X = 25; Y = 10 }
     [PSCustomObject]@{ X = 24; Y = 10 }
     [PSCustomObject]@{ X = 23; Y = 10 }
 )
 
-$direction = "RIGHT"
-$nextDirection = "RIGHT"
-$score = 0
-$delay = $BaseDelay
+$script:direction = "RIGHT"
+$script:nextDirection = "RIGHT"
+$script:score = 0
+$script:delay = $BaseDelay
 
-function Spawn-Food {
-    do {
-        $foodX = Get-Random -Minimum 1 -Maximum ($Width - 1)
-        $foodY = Get-Random -Minimum 0 -Maximum $Height
-
-        $occupied = $false
-
-        foreach ($part in $snake) {
-            if ($part.X -eq $foodX -and $part.Y -eq $foodY) {
-                $occupied = $true
-                break
-            }
-        }
-    } while ($occupied)
-
-    return [PSCustomObject]@{
-        X = $foodX
-        Y = $foodY
-    }
-}
-
-function Draw-Game {
-
-    [Console]::SetCursorPosition(0, 0)
-
-    $green = [char]27 + "[92m"
-    $darkGreen = [char]27 + "[32m"
-    $red = [char]27 + "[91m"
-    $cyan = [char]27 + "[96m"
-    $yellow = [char]27 + "[93m"
-    $white = [char]27 + "[97m"
-    $gray = [char]27 + "[90m"
-    $bold = [char]27 + "[1m"
-    $reset = [char]27 + "[0m"
-
-    $output = New-Object System.Text.StringBuilder
-
-    [void]$output.Append(
-        "${bold}${cyan}╔" + ("═" * $Width) + "╗${reset}`n"
-    )
-
-    $title = " S N A K E "
-    $left = [int](($Width - $title.Length) / 2)
-
-    [void]$output.Append(
-        "${bold}${cyan}║${reset}" +
-        (" " * $left) +
-        "${bold}${white}${title}${reset}" +
-        (" " * ($Width - $left - $title.Length)) +
-        "${bold}${cyan}║${reset}`n"
-    )
-
-    [void]$output.Append(
-        "${bold}${cyan}╠" + ("═" * $Width) + "╣${reset}`n"
-    )
-
-    for ($y = 0; $y -lt $Height; $y++) {
-
-        $row = ""
-
-        for ($x = 0; $x -lt $Width; $x++) {
-
-            $character = " "
-
-            if ($food.X -eq $x -and $food.Y -eq $y) {
-                $character = "${bold}${red}●${reset}"
-            }
-
-            for ($i = 0; $i -lt $snake.Count; $i++) {
-
-                if ($snake[$i].X -eq $x -and $snake[$i].Y -eq $y) {
-
-                    if ($i -eq 0) {
-                        $character = "${bold}${green}█${reset}"
-                    }
-                    elseif ($i % 3 -eq 0) {
-                        $character = "${darkGreen}░${reset}"
-                    }
-                    elseif ($i % 3 -eq 1) {
-                        $character = "${darkGreen}▓${reset}"
-                    }
-                    else {
-                        $character = "${darkGreen}█${reset}"
-                    }
-
-                    break
-                }
-            }
-
-            $row += $character
-        }
-
-        [void]$output.Append(
-            "${cyan}║${reset}${row}${cyan}║${reset}`n"
-        )
-    }
-
-    [void]$output.Append(
-        "${bold}${cyan}╠" + ("═" * $Width) + "╣${reset}`n"
-    )
-
-    $stats = " SCORE: $score "
-    $statsLeft = [int](($Width - $stats.Length) / 2)
-
-    [void]$output.Append(
-        "${cyan}║${reset}" +
-        (" " * $statsLeft) +
-        "${bold}${yellow}${stats}${reset}" +
-        (" " * ($Width - $statsLeft - $stats.Length)) +
-        "${cyan}║${reset}`n"
-    )
-
-    $controls = "WASD / ARROWS = MOVE    Q = QUIT"
-    $controlsLeft = [int](($Width - $controls.Length) / 2)
-
-    [void]$output.Append(
-        "${cyan}║${reset}" +
-        (" " * $controlsLeft) +
-        "${gray}${controls}${reset}" +
-        (" " * ($Width - $controlsLeft - $controls.Length)) +
-        "${cyan}║${reset}`n"
-    )
-
-    [void]$output.Append(
-        "${bold}${cyan}╚" + ("═" * $Width) + "╝${reset}"
-    )
-
-    [Console]::Write($output.ToString())
-}
-
-$food = Spawn-Food
+$script:food = New-Food
 
 Clear-Host
+
 [Console]::CursorVisible = $false
 
 try {
@@ -164,50 +188,50 @@ try {
             switch ($key.Key) {
 
                 "UpArrow" {
-                    if ($direction -ne "DOWN") {
-                        $nextDirection = "UP"
+                    if ($script:direction -ne "DOWN") {
+                        $script:nextDirection = "UP"
                     }
                 }
 
                 "DownArrow" {
-                    if ($direction -ne "UP") {
-                        $nextDirection = "DOWN"
+                    if ($script:direction -ne "UP") {
+                        $script:nextDirection = "DOWN"
                     }
                 }
 
                 "LeftArrow" {
-                    if ($direction -ne "RIGHT") {
-                        $nextDirection = "LEFT"
+                    if ($script:direction -ne "RIGHT") {
+                        $script:nextDirection = "LEFT"
                     }
                 }
 
                 "RightArrow" {
-                    if ($direction -ne "LEFT") {
-                        $nextDirection = "RIGHT"
+                    if ($script:direction -ne "LEFT") {
+                        $script:nextDirection = "RIGHT"
                     }
                 }
 
                 "W" {
-                    if ($direction -ne "DOWN") {
-                        $nextDirection = "UP"
+                    if ($script:direction -ne "DOWN") {
+                        $script:nextDirection = "UP"
                     }
                 }
 
                 "S" {
-                    if ($direction -ne "UP") {
-                        $nextDirection = "DOWN"
+                    if ($script:direction -ne "UP") {
+                        $script:nextDirection = "DOWN"
                     }
                 }
 
                 "A" {
-                    if ($direction -ne "RIGHT") {
-                        $nextDirection = "LEFT"
+                    if ($script:direction -ne "RIGHT") {
+                        $script:nextDirection = "LEFT"
                     }
                 }
 
                 "D" {
-                    if ($direction -ne "LEFT") {
-                        $nextDirection = "RIGHT"
+                    if ($script:direction -ne "LEFT") {
+                        $script:nextDirection = "RIGHT"
                     }
                 }
 
@@ -217,19 +241,31 @@ try {
             }
         }
 
-        $direction = $nextDirection
+        $script:direction = $script:nextDirection
 
-        $headX = $snake[0].X
-        $headY = $snake[0].Y
+        $headX = $script:snake[0].X
+        $headY = $script:snake[0].Y
 
-        switch ($direction) {
-            "UP"    { $headY-- }
-            "DOWN"  { $headY++ }
-            "LEFT"  { $headX-- }
-            "RIGHT" { $headX++ }
+        switch ($script:direction) {
+            "UP" {
+                $headY--
+            }
+
+            "DOWN" {
+                $headY++
+            }
+
+            "LEFT" {
+                $headX--
+            }
+
+            "RIGHT" {
+                $headX++
+            }
         }
 
         # Wall collision
+
         if (
             $headX -lt 0 -or
             $headX -ge $Width -or
@@ -240,10 +276,15 @@ try {
         }
 
         # Self collision
+
         $hitSelf = $false
 
-        foreach ($part in $snake) {
-            if ($part.X -eq $headX -and $part.Y -eq $headY) {
+        foreach ($part in $script:snake) {
+
+            if (
+                $part.X -eq $headX -and
+                $part.Y -eq $headY
+            ) {
                 $hitSelf = $true
                 break
             }
@@ -253,36 +294,52 @@ try {
             break
         }
 
+        # New head
+
         $newHead = [PSCustomObject]@{
             X = $headX
             Y = $headY
         }
 
-        $snake = @($newHead) + @($snake)
+        $script:snake = @(
+            $newHead
+        ) + @(
+            $script:snake
+        )
 
-        if ($headX -eq $food.X -and $headY -eq $food.Y) {
+        # Food
 
-            $score++
+        if (
+            $headX -eq $script:food.X -and
+            $headY -eq $script:food.Y
+        ) {
 
-            $delay = [math]::Max(
+            $script:score++
+
+            if ($script:score -gt $script:highScore) {
+                $script:highScore = $script:score
+            }
+
+            $script:delay = [math]::Max(
                 $MinDelay,
-                $BaseDelay - ($score * 2)
+                $BaseDelay - ($script:score * 2)
             )
 
-            $food = Spawn-Food
+            $script:food = New-Food
         }
         else {
 
-            if ($snake.Count -gt 1) {
-                $snake = @(
-                    $snake[0..($snake.Count - 2)]
+            if ($script:snake.Count -gt 1) {
+
+                $script:snake = @(
+                    $script:snake[0..($script:snake.Count - 2)]
                 )
             }
         }
 
-        Draw-Game
+        Draw
 
-        Start-Sleep -Milliseconds $delay
+        Start-Sleep -Milliseconds $script:delay
     }
 
 }
@@ -297,7 +354,8 @@ Write-Host "╔═════════════════════�
 Write-Host "║                                                  ║" -ForegroundColor Red
 Write-Host "║                    GAME OVER                     ║" -ForegroundColor Red
 Write-Host "║                                                  ║" -ForegroundColor Red
-Write-Host ("║              FINAL SCORE: {0,-18}║" -f $score) -ForegroundColor Yellow
+Write-Host ("║              FINAL SCORE: {0,-18}║" -f $script:score) -ForegroundColor Yellow
+Write-Host ("║              BEST SCORE:  {0,-18}║" -f $script:highScore) -ForegroundColor Cyan
 Write-Host "║                                                  ║" -ForegroundColor Red
 Write-Host "║             R = RESTART   Q = QUIT              ║" -ForegroundColor Gray
 Write-Host "║                                                  ║" -ForegroundColor Red
@@ -316,31 +374,31 @@ while ($true) {
         return "QUIT"
     }
 }
+```
 
 }
 
 try {
 
+```
 while ($true) {
 
-    $result = Start-SnakeGame
-
-    if ($result -eq "QUIT") {
-        break
-    }
+    $result = Play-Game
 
     if ($result -eq "RESTART") {
-        Clear-Host
         continue
     }
 
     break
 }
+```
 
 }
 finally {
 
+```
 [Console]::CursorVisible = $true
 Write-Host ""
+```
 
 }
